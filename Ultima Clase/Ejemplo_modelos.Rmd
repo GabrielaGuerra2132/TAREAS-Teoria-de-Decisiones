@@ -1,0 +1,276 @@
+---
+title: "Ejemplo aplicando diferentes modelos"
+date: "Mayo 2024"
+Author:"Gabriela Guerra Arredondo"
+output: 
+  html_document:
+    toc: true
+    toc_depth: 1
+    theme: cerulean
+---
+
+
+<style>
+body {
+text-align: justify}
+</style>
+
+
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(discrtr) # A companion package for the book Introduction to Discrete Choice Analysis with `R`
+library(gplots) # Various R Programming Tools for Plotting Data
+library(ggmosaic) # Mosaic Plots in the 'ggplot2' Framework
+library(treemapify)
+library(ggridges)
+library(ggalluvial)
+library(kableExtra)
+library(plotly)
+library(mlogit)
+library(gridExtra)
+library(evd)
+library(AER)
+library(gmnl)
+```
+
+
+Tareas Teoría de Decisiones:
+
+
+1. Ejercicios  3, 4 y 5 del Capítulo 2.
+
+2. Ejercicios Capítulo 5.
+
+3. Ejemplos realizados el 23 de mayo.
+
+Subir los archivos a su cuenta de GitHub a más tardar el sábado 25 de mayo.
+
+
+# Conjunto de datos ModeCanada
+
+Trabajaremos con los datos *ModeCanada* del package *mlogit* el cual consiste de las opciones de transporte entre Montreal y Toronto.   Está en formato por longitud con las siguientes variables: 
+
+
+* case: the individual index,
+
+* alt: the alternative, one of train, car, bus and air,
+
+* choice: one if the mode is chosen, zero otherwise,
+
+* cost: monetary cost,
+
+* ivt: in vehicule time,
+
+* ovt: out vehicule time,
+
+* frequency: frequency,
+
+* income: income,
+
+* urban: urban,
+
+* noalt: the number of alternatives available.
+
+```{r}
+data("ModeCanada", package = "mlogit")
+glimpse(ModeCanada)
+```
+
+Cambiamos el tipo de algunas variables:
+
+```{r}
+ModeCanada$dist <- as.numeric(ModeCanada$dist)
+ModeCanada$income <- as.numeric(ModeCanada$income)
+```
+
+
+
+Observamos que no todas las personas tienen todas las alternativas disponibles,  se filtra un subconjunto con disponibilidad completa:
+
+
+```{r}
+ModeCanadafilter <- ModeCanada |> filter(noalt == 4)
+
+MC <- mlogit.data(ModeCanada |> 
+filter(noalt == 4),
+choice = "choice",
+shape = "long",
+alt.levels = c("air",
+"train",
+"bus",
+"car"))
+```
+
+
+## Gráficas
+
+```{r}
+ggplot(ModeCanadafilter |> filter(choice==1))+
+  geom_bar(aes(alt, fill=alt), color="black", show.legend = FALSE)+
+  theme_bw()
+```
+
+```{r}
+ggplot(ModeCanadafilter)+
+  geom_boxplot(aes(alt, cost, color=alt), show.legend = FALSE)+
+  theme_bw()
+```
+
+
+```{r}
+ggplot(ModeCanadafilter)+
+  geom_boxplot(aes(alt, ivt, color=alt), show.legend = FALSE)+
+  theme_bw()
+```
+
+```{r}
+ggplot(ModeCanadafilter)+
+  geom_boxplot(aes(alt, ovt, color=alt), show.legend = FALSE)+
+  theme_bw()
+```
+
+
+
+## Modelo logit considerando el costo
+
+
+```{r}
+ml1 <- mlogit(choice ~ cost, MC)
+summary(ml1)
+```
+
+## Modelo logit considerando el costo, ivt y ovt
+
+
+```{r}
+ml2 <- mlogit(choice ~ cost+ivt+ovt, MC)
+summary(ml2)
+```
+
+## Modelo logit multinomial, considerando dist como atributo del decisor
+
+```{r}
+ml3 <- mlogit(choice~ cost+ivt+ovt|dist, MC)
+summary(ml3)
+```
+## Modelo logit multinomial, considerando dist como atributo del decisor y coeficientes específicos para costo
+
+```{r}
+ml4 <- mlogit(choice~ ivt+ovt|0|cost, MC)
+summary(ml4)
+```
+
+## Modelo anidado: Set1 (rápido) y set2(lento).
+
+```{r}
+nl1 <- mlogit(choice ~ cost+ivt+ovt, MC, nests = list(set1=c('air', 'car'), set2 = c('train', 'bus')), steptol=1e-12)
+
+summary(nl1)
+```
+
+
+
+
+
+
+# Conjunto de datos TravelMode
+
+Consideremos los datos *TravelMode* del package *AER* el cual consiste de las opciones de transporte entre Sidney y Melbourne.   Está en formato por longitud con las siguientes variables: 
+
+* individual: Factor indicating individual with levels 1 to 210.
+
+* mode: Factor indicating travel mode with levels "car", "air", "train", or "bus".
+
+* choice: Factor indicating choice with levels "no" and "yes".
+
+* wait: Terminal waiting time, 0 for car.
+
+* vcost: Vehicle cost component.
+
+* travel: Travel time in the vehicle.
+
+* gcost: Generalized cost measure.
+
+* income: Household income.
+
+* size: Party size.
+
+```{r}
+data("TravelMode", package = "AER")
+glimpse(TravelMode)
+```
+
+
+
+
+Cambiamos la clase del conjunto de datos:
+
+```{r}
+TM <- mlogit.data(TravelMode,
+choice = "choice",
+shape = "long",
+alt.levels = c("air",
+"train",
+"bus",
+"car"))
+```
+
+# Gráficas
+
+```{r}
+ggplot(TravelMode |> filter(choice=="yes"))+
+  geom_bar(aes(mode, fill=mode), show.legend = FALSE)+
+  theme_classic()
+```
+
+```{r}
+ggplot(TravelMode |> filter(choice=="yes"))+
+  geom_boxplot(aes(mode, wait, fill=mode), show.legend = FALSE, color="black")+
+  theme_classic()
+```
+
+
+
+
+```{r}
+ggplot(TravelMode |> filter(choice=="yes"))+
+  geom_boxplot(aes(mode, travel, fill=mode), show.legend = FALSE, color="black")+
+  theme_classic()
+```
+
+## Agregar los modelos logit (al menos 3)
+
+
+## Modelo anidado: Set1 (lento) y set2(rápido).
+
+```{r}
+nl2 <- mlogit(choice ~ vcost+wait, TM, nests = list(set1=c('bus', 'train'), set2 = c( 'air', 'car')), steptol=1e-12)
+
+summary(nl2)
+```
+¿Qué significa que iv sea negativo?
+
+## Modelo de clases latentes (Q=2), considerando costo
+
+```{r}
+lc1 <- gmnl(choice ~ vcost| 0 | 0 | 0 | 1, data = TM, model = 'lc', Q = 2, panel = FALSE,  method = "bhhh")
+summary(lc1)
+```
+
+## Modelo de clases latentes (Q=2), considerando costo + wait + travel
+
+
+```{r}
+lc1 <- gmnl(choice ~ vcost+ wait| 0 | 0 | 0 | 1, data = TM, model = 'lc', Q = 2, panel = FALSE,  method = "bhhh")
+summary(lc1)
+```
+
+
+
+
+## Agregar Logit Mixto (notas capítulo 10)
+
+
